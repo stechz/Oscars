@@ -1,0 +1,390 @@
+<!doctype html>
+<html>
+
+  <head>
+    <meta charset="UTF-8" />
+    <title>jQTouch &beta;</title>
+    <style type="text/css" media="screen">@import "../../jqtouch/jqtouch.min.css";</style>
+    <style type="text/css" media="screen">@import "../../themes/apple/theme.min.css";</style>
+    <script src="model.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../../jqtouch/jquery.1.3.2.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../../jqtouch/jqtouch.js" type="application/x-javascript" charset="utf-8"></script>
+    <script src="base.js" type="text/javascript" charset="utf-8"></script>
+
+    <script type="text/javascript" charset="utf-8">
+
+var jQT = new $.jQTouch({
+  statusBar: 'black',
+  slideSelector: 'a.slide'
+});
+
+function writeTemplate(prefix, name) {
+  // Category selection
+  $(['<div id="%s_categories">',
+     '  <div class="toolbar">',
+     '    <h1>%s: Categories</h1>',
+     '    <a href="#home" class="back">Home</a>',
+     '  </div>',
+       '<ul class="edit rounded">'
+  ]).writeln(prefix, name);
+
+  forEachCategory(function(i, category) {
+    var choiceid = prefix + "_categories_" + i;
+    var href = "#" + prefix + "_categories_" + i;
+    $(['<li class="arrow">',
+       '<a class="slide category_choice" choiceid="%s" href="%s">%s</a>',
+       '</li>'
+    ]).writeln(choiceid, href, category);
+  });
+
+  $(['  </ul>',
+     '</div>'
+  ]).writeln();
+
+  // Category item selection
+  forEachCategory(function(i, category) {
+    var id = prefix + "_categories_" + i;
+    $(['<div class="%s_category" id="%s">',
+       '  <div class="toolbar">',
+       '    <h1>Vote: %s</h1>',
+       '    <a href="#" class="back">Back</a>',
+       '  </div>',
+       '  <ul class="edit rounded">'
+    ]).writeln(prefix, id, category);
+
+    $(['<li><a class="%s blank" href="#">',
+       '  (blank)',
+       '</a></li>'
+    ]).writeln(prefix);
+
+    forEachCategoryItem(category, function(j, major, minor) {
+      var id = prefix + "_choice_" + i + "_" + j;
+      $(['<li><a id="%s" class="%s" href="#">',
+         '  %s',
+         '  <span class="secondary">%s',
+         '</a></li>'
+      ]).writeln(id, prefix, major, minor);
+    });
+
+    $(['  </ul>',
+       '</div>'
+    ]).writeln();
+  });
+}
+
+$(function(){
+  // Orientation callback event
+  $('body').bind('turn', function(e, data){
+    $('#orient').html('Orientation: ' + data.orientation);
+  });
+
+  // Fill in existing users
+  $('#vote').bind('pageAnimationStart', function() {
+    var html = "";
+    forEachName(function(i) {
+      html += '<li class="arrow"><a href="#" class="vote_link existing">' + i + '</a></li>';
+    });
+    if (html)
+      $('#vote_existing').html(html);
+    $('#vote_name').val('');
+  });
+
+  // Name enter
+  function enterName() {
+    var val = $('#vote_name').val();
+    if ($(this).hasClass('new') && val) {
+      selectUser(val);
+      jQT.goTo('#vote_categories', 'slide');
+    } else if ($(this).hasClass('existing')) {
+      selectUser($(this).html());
+      jQT.goTo('#vote_categories', 'slide');
+    }
+    return false;
+  }
+  $('#vote_form').submit(enterName);
+  $('.vote_link').live('click', enterName);
+
+  (function() {
+  // User category selection setup
+  $('#vote_categories').bind('pageAnimationStart', function() {
+    $('.category_choice').each(function() {
+      var choiceid = $(this).attr('choiceid');
+      var li = $(this).closest('li');
+      if (getChoice(choiceid)) {
+        li.removeClass('arrow');
+        li.addClass('forward');
+      } else {
+        li.removeClass('forward');
+        li.addClass('arrow');
+      }
+    });
+  });
+
+  // User vote selection
+  function guiSelectChoice(parent, self) {
+    $('a.vote', parent).each(function() {
+      if (self == this)
+        $(this).addClass('active-choice');
+      else
+        $(this).removeClass('active-choice');
+    });
+  }
+  $('a.vote').click(function() {
+    var parent = $(this).closest('.vote_category');
+    var self = this;
+    if ($(this).hasClass('blank')) {
+      deleteChoice(parent.attr('id'));
+      guiSelectChoice(parent, null);
+    } else {
+      selectChoice(parent.attr('id'), self.id);
+      guiSelectChoice(parent, self);
+    }
+    jQT.goBack();
+  });
+
+  // User fill in choice
+  $('.vote_category').bind('pageAnimationStart', function() {
+    if (getChoice(this.id))
+      guiSelectChoice(this, document.getElementById(getChoice(this.id)));
+  });
+  })();
+
+  (function() {
+  // Oscar category selection setup
+  $('#oscarwinner_categories').bind('pageAnimationStart', function() {
+    $('.category_choice').each(function() {
+      var choiceid = $(this).attr('choiceid');
+      var li = $(this).closest('li');
+      if (getWinner(choiceid)) {
+        li.removeClass('arrow');
+        li.addClass('forward');
+      } else {
+        li.removeClass('forward');
+        li.addClass('arrow');
+      }
+    });
+  });
+
+  // Oscar winner vote selection
+  function guiSelectChoice(parent, self) {
+    $('a.oscarwinner', parent).each(function() {
+      if (self == this)
+        $(this).addClass('active-choice');
+      else
+        $(this).removeClass('active-choice');
+    });
+  }
+  $('a.oscarwinner').click(function() {
+    var parent = $(this).closest('.oscarwinner_category');
+    var self = this;
+    if ($(this).hasClass('blank')) {
+      deleteWinner(parent.attr('id'));
+      guiSelectChoice(parent, null);
+    } else {
+      selectWinner(parent.attr('id'), self.id);
+      guiSelectChoice(parent, self);
+    }
+    jQT.goBack();
+  });
+
+  // Oscar winner fill in choice
+  $('.oscarwinner_category').bind('pageAnimationStart', function() {
+    if (getWinner(this.id))
+      guiSelectChoice(this, document.getElementById(getWinner(this.id)));
+  });
+  })();
+
+  // Results
+  $('#results').bind('pageAnimationStart', function() {
+    var right = {};
+    var wrong = {};
+    var nochoice = {};
+
+    function winner(right, wrong, nochoice) {
+      return Math.max(0, right * 4 - wrong);
+    }
+
+    var evaluations = {
+      "Winner": winner,
+
+      "Most Correct Guesses": function(right, wrong, nochoice) {
+        return right;
+      },
+
+      "Most Incorrect Guesses": function(right, wrong, nochoice) {
+        return wrong;
+      },
+
+      "Most Cautious": function(right, wrong, nochoice) {
+        return nochoice;
+      }
+    };
+
+    var nothingYet = true;
+
+    forEachName(function(user) {
+      selectUser(user);
+      right[user] = 0;
+      wrong[user] = 0;
+      nochoice[user] = 0;
+
+      forEachCategory(function(i, category) {
+        var winner = getWinner("oscarwinner_categories_" + i);
+        if (winner) {
+          nothingYet = false;
+          var choice = getChoice("vote_categories_" + i);
+          if (!choice) {
+            nochoice[user]++;
+          } else {
+            winner = winner.replace(/^oscarwinner_choice_/, "");
+            choice = choice.replace(/^vote_choice_/, "");
+            console.log(choice, winner);
+            if (choice == winner)
+              right[user]++;
+            else
+              wrong[user]++;
+          }
+         }
+      });
+
+      if (nothingYet)
+        return;
+
+      console.log(user,
+                  "right:", right[user],
+                  "wrong:", wrong[user],
+                  "nochoice:", nochoice[user]);
+
+      for (var i in evaluations) {
+        var fn = evaluations[i];
+        var val = fn(right[user], wrong[user], nochoice[user]);
+        if (!fn.bestUsers) {
+          fn.bestUsers = [user];
+          fn.bestScore = val;
+        } else {
+          if (val == fn.bestScore) {
+            fn.bestUsers.push(user);
+          } else if (val > fn.bestScore) {
+            fn.bestUsers = [user];
+            fn.bestScore = val;
+          }
+        }
+      }
+    }); 
+
+    if (nothingYet)
+      return;
+
+    var html = "";
+    for (var i in evaluations) {
+      var fn = evaluations[i];
+      if (fn.bestUsers) {
+        var winners = fn.bestUsers.join(", ");
+        html += "<li class='result'>" + i + ": " + winners + "</li>";
+      }
+    }
+    if (html)
+      $("#output_results").html(html);
+
+    var scores = [];
+    forEachName(function(user) {
+      scores.push({
+        name: user, 
+        val: winner(right[user], wrong[user], nochoice[user])
+      });
+    });
+
+    scores.sort(function(a, b) {
+      return b.val - a.val;
+    });
+
+    html = "";
+    for (var i = 0; i < scores.length; i++) {
+      html += '<li class="result">' + scores[i].name + '<span class="secondary">' + scores[i].val + ' points</span></li>';
+    }
+    if (html)
+      $("#output_list").html(html);
+  });
+});
+
+    </script>
+
+    <style type="text/css" media="screen">
+        body.fullscreen #home {
+            display: none;
+        }
+        span.secondary {
+          font-size: 60%;
+          padding-left: 10px;
+        }
+        a.active-choice {
+          background-color: #53b401;
+          color: #fff;
+        }
+        .forward {
+          background-color: #aaa;
+        }
+    </style>
+  </head>
+
+  <body>
+
+    <div id="home" class="current">
+      <div class="info">
+        <h2>Get your vote on for the Oscars!</h2>
+      </div>
+      <ul class="rounded">
+        <li class="arrow"><a class="slide" href="#vote">Vote</a></li>
+        <li class="arrow"><a class="slide" href="#oscarwinner_categories">Enter Oscar Winners</a></li>
+        <li class="arrow"><a class="slide" href="#results">See Your Results</a></li>
+      </ul>
+      <div class="info">
+        <p>Made using demo code from jQTouch, by David Kaneda. Thanks for making it so easy!</p>
+        <p>By Benjamin Stover</p>
+      </div>
+    </div>
+
+    <div id="vote">
+      <div class="toolbar">
+        <h1>Vote</h1>
+        <a href="#" class="back">Back</a>
+      </div>
+      <form id="vote_form" class="new">
+        <h2>Existing Contender</h2>
+        <ul id="vote_existing" class="edit rounded">
+          <li>No voters so far.</li>
+        </ul>
+        <h2>New Contender</h2>
+        <ul class="edit rounded">
+          <li><input type="text" placeholder="Your Name" name="name" id="vote_name" style="color: #ddd"/></li>
+        </ul>
+        <ul class="edit rounded">
+          <li class="arrow"><a class="vote_link new" href="#vote_categories">Next</a></li>
+        </ul>
+      </form>
+    </div>
+
+    <div id="results">
+      <div class="toolbar">
+        <h1>Results</h1>
+        <a href="#" class="back">Back</a>
+      </div>
+      <h2>Trophies</h2>
+      <ul class="rounded" id="output_results">
+        <li>No winners have been chosen.</li>
+      </ul>
+      <h2>Score List</h2>
+      <ul class="rounded" id="output_list">
+      </ul>
+    </div>
+
+    <script type="text/javascript">
+
+writeTemplate("vote", "Vote");  // For user votes
+writeTemplate("oscarwinner", "Winners");  // For actual winner
+
+    </script>
+
+  </body>
+
+</html>
