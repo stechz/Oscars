@@ -226,7 +226,7 @@ function forEachName(fn) {
 }
 
 function selectUser(user) {
-  user = escape(user.replace(/\s+|\s+$/, ""));
+  user = $('<div/>').text(user.replace(/^\s+|\s+$/g, "")).html();
   if (!(user in names)) {
     names[user] = {};
   }
